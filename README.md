@@ -16,8 +16,9 @@
 
 ## 安装要求
 
-- Python 3.x
-- Pillow库: `pip install pillow`
+- Python 3.8 或更高版本 (推荐使用 Python 3.11)
+- Tcl/Tk 8.5 或更高版本 (在大多数 Python 安装中已包含)
+- Pillow 库: `pip install pillow` (测试版本 10.2.0)
 
 ## 使用方法
 
