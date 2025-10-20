@@ -241,6 +241,10 @@ class MagnifierStrategy(DrawStrategy):
         right_i = min(app.im1_orig.width, ix + half)
         bottom_i = min(app.im1_orig.height, iy + half)
 
+        # 检查裁剪区域是否有效，避免PIL报错
+        if left_i >= right_i or top_i >= bottom_i:
+            return None
+
         try:
             # 裁剪两个区域
             reg1 = app.im1_orig.crop((left_i, top_i, right_i, bottom_i))
@@ -550,8 +554,8 @@ class SRCompareApp:
         self.canvas_left.bind("<MouseWheel>", self.on_mouse_wheel)
         self.canvas_left.bind("<Configure>", lambda e: self.schedule_refresh(immediate=True))
 
-        # 添加快捷键绑定
-        self.root.bind('<Key>', self.on_key_press)
+        # 添加快捷键绑定 (改为全局绑定，确保即使焦点不在主窗口也能工作)
+        self.root.bind_all('<Key>', self.on_key_press)
 
         self.canvas_right.bind("<Enter>", lambda e: self.canvas_right.focus_set())
         self.canvas_right.bind("<ButtonPress-1>",
@@ -574,6 +578,8 @@ class SRCompareApp:
         if p:
             self.im1_path = p
             self.update_path_lbl()
+            # 确保对话框关闭后窗口获得焦点
+            self.root.focus_force()
             threading.Thread(target=self._load_image_thread, args=(1, p), daemon=True).start()
 
     def load_im2(self):
@@ -582,6 +588,8 @@ class SRCompareApp:
         if p:
             self.im2_path = p
             self.update_path_lbl()
+            # 确保对话框关闭后窗口获得焦点
+            self.root.focus_force()
             threading.Thread(target=self._load_image_thread, args=(2, p), daemon=True).start()
 
     def update_path_lbl(self):
@@ -1278,6 +1286,9 @@ class SRCompareApp:
                 self._update_page_label()
 
                 self.set_loading(False, "")
+
+                # 恢复窗口焦点，确保快捷键可以正常工作
+                self.root.focus_force()
 
                 # 刷新显示
                 self.on_mode_change()
