@@ -188,6 +188,8 @@ def get_disp_image_scaled(im: Image.Image, zoom: float, cache: OrderedDict,
 def find_matching_images(folder1_files: List[str], folder2_files: List[str]) -> Tuple[List[Tuple[str, str]], int]:
     """匹配两个文件夹中的图像文件
 
+    优先按文件名（不含扩展名，大小写不敏感）匹配，如果匹配失败则按排序后的一一对应。
+
     Args:
         folder1_files: 文件夹1的文件列表
         folder2_files: 文件夹2的文件列表
@@ -197,24 +199,46 @@ def find_matching_images(folder1_files: List[str], folder2_files: List[str]) -> 
     """
     from pathlib import Path
 
-    # 提取文件名（不含扩展名）的公共前缀部分
-    def extract_common_prefix(path):
-        stem = Path(path).stem
-        return stem
+    # 提取文件名（不含扩展名），小写化以实现大小写不敏感匹配
+    def extract_key(path):
+        return Path(path).stem.lower()
 
-    # 创建映射关系
+    # 创建folder2的映射（小写stem -> 原始路径）
     folder2_map = {}
     for img2_path in folder2_files:
-        prefix2 = extract_common_prefix(img2_path)
-        folder2_map[prefix2] = img2_path
+        key = extract_key(img2_path)
+        folder2_map[key] = img2_path
 
-    # 配对图像
+    # 尝试按文件名匹配
     matched_pairs = []
+    unmatched_folder1 = []
+    
     for img1_path in folder1_files:
-        prefix1 = extract_common_prefix(img1_path)
-        if prefix1 in folder2_map:
-            matched_pairs.append((img1_path, folder2_map[prefix1]))
+        key = extract_key(img1_path)
+        if key in folder2_map:
+            matched_pairs.append((img1_path, folder2_map[key]))
+        else:
+            unmatched_folder1.append(img1_path)
 
+    # 如果有未匹配的，采用一一对应的策略（假设两个文件夹内文件顺序一致）
+    # 先按原始顺序排序，然后按索引配对
+    if unmatched_folder1:
+        # 获取已匹配的folder2文件
+        matched_folder2 = set(pair[1] for pair in matched_pairs)
+        unmatched_folder2 = [f for f in folder2_files if f not in matched_folder2]
+        
+        # 对未匹配的文件按文件名排序后一一配对
+        unmatched_folder1.sort(key=lambda x: extract_key(x))
+        unmatched_folder2.sort(key=lambda x: extract_key(x))
+        
+        # 取较短的长度，避免索引错误
+        pair_count = min(len(unmatched_folder1), len(unmatched_folder2))
+        for i in range(pair_count):
+            matched_pairs.append((unmatched_folder1[i], unmatched_folder2[i]))
+
+    # 按folder1的文件名排序，保证稳定的顺序
+    matched_pairs.sort(key=lambda pair: extract_key(pair[0]))
+    
     total_images = len(matched_pairs)
     return matched_pairs, total_images
 
@@ -224,12 +248,25 @@ def load_folder_images(folder_path: str) -> List[str]:
     from pathlib import Path
     import glob
 
-    image_extensions = ['*.jpg', '*.jpeg', '*.png', '*.bmp', '*.tiff', '*.tif']
+    image_extensions = ['*.jpg', '*.jpeg', '*.png', '*.bmp', '*.tiff', '*.tif', '*.webp', '*.gif']
     image_files = []
 
+    # 同时支持大小写扩展名
     for ext in image_extensions:
         pattern = Path(folder_path) / ext
         image_files.extend(glob.glob(str(pattern)))
+        pattern_upper = Path(folder_path) / ext.upper()
+        image_files.extend(glob.glob(str(pattern_upper)))
 
-    image_files.sort()  # 按文件名排序
-    return image_files
+    # 去重并保持大小写不敏感排序
+    seen = set()
+    unique_files = []
+    for f in image_files:
+        lower_f = f.lower()
+        if lower_f not in seen:
+            seen.add(lower_f)
+            unique_files.append(f)
+    
+    # 按文件名（大小写不敏感）排序
+    unique_files.sort(key=lambda x: Path(x).name.lower())
+    return unique_files

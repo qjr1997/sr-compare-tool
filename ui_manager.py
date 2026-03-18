@@ -67,6 +67,9 @@ class UIManager:
         # 文件夹模式切换
         self._build_mode_switch(ctrl)
 
+        # 文件夹路径显示区（文件夹模式）
+        self._build_folder_path_display(ctrl)
+
         # 图像加载区
         load_row = tk.ttk.Frame(ctrl)
         load_row.pack(side=tk.TOP, fill=tk.X, pady=(0, 8))
@@ -90,6 +93,25 @@ class UIManager:
                           value="单张对比", command=self.switch_compare_mode).pack(side=tk.LEFT, padx=(0, 8))
         tk.ttk.Radiobutton(mode_switch_row, text="文件夹对比", variable=self.compare_mode_var,
                           value="文件夹对比", command=self.switch_compare_mode).pack(side=tk.LEFT, padx=(0, 8))
+
+    def _build_folder_path_display(self, ctrl):
+        """构建文件夹路径显示区（仅文件夹模式可见）"""
+        self.folder_path_frame = tk.ttk.Frame(ctrl)
+        self.folder_path_frame.pack(side=tk.TOP, fill=tk.X, pady=(0, 4))
+        
+        # 文件夹1路径标签
+        folder1_display_frame = tk.ttk.Frame(self.folder_path_frame)
+        folder1_display_frame.pack(side=tk.TOP, fill=tk.X, pady=(0, 2))
+        tk.ttk.Label(folder1_display_frame, text="文件夹1:", width=10).pack(side=tk.LEFT)
+        self.folder1_path_lbl = tk.ttk.Label(folder1_display_frame, text="未选择", foreground="gray")
+        self.folder1_path_lbl.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 0))
+        
+        # 文件夹2路径标签
+        folder2_display_frame = tk.ttk.Frame(self.folder_path_frame)
+        folder2_display_frame.pack(side=tk.TOP, fill=tk.X, pady=(0, 2))
+        tk.ttk.Label(folder2_display_frame, text="文件夹2:", width=10).pack(side=tk.LEFT)
+        self.folder2_path_lbl = tk.ttk.Label(folder2_display_frame, text="未选择", foreground="gray")
+        self.folder2_path_lbl.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(4, 0))
 
     def _build_single_controls(self, load_row):
         """构建单张对比控件"""
@@ -189,18 +211,32 @@ class UIManager:
         if self.compare_mode_var.get() == "文件夹对比":
             self.app.folder_mode = True
             self.single_frame.pack_forget()
+            self.folder_path_frame.pack(side=tk.TOP, fill=tk.X, pady=(0, 4))
             self.folder_frame.pack(side=tk.TOP, fill=tk.X)
 
-            # 如果已加载文件夹，显示第一组图像
-            if self.app.folder1_images and self.app.folder2_images and self.app.total_images > 0:
-                self.app.file_manager.load_current_image_pair()
+            # 如果已加载文件夹，确保索引有效并显示当前图像对
+            if self.app.folder1_images and self.app.folder2_images:
+                # 重新执行匹配，确保一致性
+                from image_utils import find_matching_images
+                matched_pairs, self.app.total_images = find_matching_images(
+                    self.app.folder1_images, self.app.folder2_images
+                )
+                if matched_pairs:
+                    self.app.folder1_images = [pair[0] for pair in matched_pairs]
+                    self.app.folder2_images = [pair[1] for pair in matched_pairs]
+                    # 确保索引在有效范围内
+                    if self.app.current_image_index >= self.app.total_images:
+                        self.app.current_image_index = 0
+                    self.update_page_label()
+                    self.update_folder_status()
+                    # 加载当前图像对
+                    self.app.file_manager.load_current_image_pair()
         else:
             self.app.folder_mode = False
             self.folder_frame.pack_forget()
+            self.folder_path_frame.pack_forget()
             self.single_frame.pack(side=tk.TOP, fill=tk.X)
             self.folder_status_label.config(text="")
-            # 清除文件夹模式数据
-            self.app.folder_mode = False
 
     def _bind_events(self):
         """绑定所有事件"""
@@ -342,6 +378,16 @@ class UIManager:
     def on_key_press(self, event):
         """快捷键处理"""
         key = event.char.lower()
+        keysym = event.keysym  # 用于特殊键如左右方向键
+
+        # 文件夹模式翻页: 左右方向键
+        if self.app.folder_mode and self.app.total_images > 0:
+            if keysym == 'Left':
+                self.app.file_manager.prev_image()
+                return
+            elif keysym == 'Right':
+                self.app.file_manager.next_image()
+                return
 
         # 模式切换: 数字键1-5
         mode_keys = {'1': "并排对比", '2': "快速切换", '3': "滑动对比", '4': "局部放大", '5': "差异显示"}
@@ -386,13 +432,26 @@ class UIManager:
 
     def update_folder_status(self):
         """更新文件夹状态显示"""
+        # 更新状态栏
         status_parts = []
         if self.app.folder1_path:
             status_parts.append(f"文件夹1: {Path(self.app.folder1_path).name} ({len(self.app.folder1_images)}张)")
         if self.app.folder2_path:
             status_parts.append(f"文件夹2: {Path(self.app.folder2_path).name} ({len(self.app.folder2_images)}张)")
-
         self.folder_status_label.config(text=" | ".join(status_parts))
+        
+        # 更新上方路径显示
+        if self.app.folder1_path:
+            folder1_name = Path(self.app.folder1_path).name
+            self.folder1_path_lbl.config(text=folder1_name, foreground="black")
+        else:
+            self.folder1_path_lbl.config(text="未选择", foreground="gray")
+            
+        if self.app.folder2_path:
+            folder2_name = Path(self.app.folder2_path).name
+            self.folder2_path_lbl.config(text=folder2_name, foreground="black")
+        else:
+            self.folder2_path_lbl.config(text="未选择", foreground="gray")
 
     def update_page_label(self):
         """更新页面标签显示"""

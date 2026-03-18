@@ -103,15 +103,19 @@ class FileManager:
         folder = filedialog.askdirectory(title="选择图1文件夹")
         if folder:
             self.app.folder1_path = folder
-            self.app.folder1_images = load_folder_images(folder)
+            new_folder1_images = load_folder_images(folder)
+            self.app.folder1_images = new_folder1_images
+            self.app.current_image_index = 0  # 重置索引
             self.app.ui_manager.update_folder_status()
 
             # 如果两个文件夹都已选择，自动匹配
             if self.app.folder1_images and self.app.folder2_images:
-                matched_pairs, self.app.total_images = find_matching_images(self.app.folder1_images, self.app.folder2_images)
+                matched_pairs, self.app.total_images = find_matching_images(
+                    self.app.folder1_images, self.app.folder2_images
+                )
+                # 使用临时变量避免相互覆盖
                 self.app.folder1_images = [pair[0] for pair in matched_pairs]
                 self.app.folder2_images = [pair[1] for pair in matched_pairs]
-                self.app.current_image_index = 0
 
                 # 更新页面显示
                 self.app.ui_manager.update_page_label()
@@ -127,15 +131,19 @@ class FileManager:
         folder = filedialog.askdirectory(title="选择图2文件夹")
         if folder:
             self.app.folder2_path = folder
-            self.app.folder2_images = load_folder_images(folder)
+            new_folder2_images = load_folder_images(folder)
+            self.app.folder2_images = new_folder2_images
+            self.app.current_image_index = 0  # 重置索引
             self.app.ui_manager.update_folder_status()
 
             # 如果两个文件夹都已选择，自动匹配
             if self.app.folder1_images and self.app.folder2_images:
-                matched_pairs, self.app.total_images = find_matching_images(self.app.folder1_images, self.app.folder2_images)
+                matched_pairs, self.app.total_images = find_matching_images(
+                    self.app.folder1_images, self.app.folder2_images
+                )
+                # 使用临时变量避免相互覆盖
                 self.app.folder1_images = [pair[0] for pair in matched_pairs]
                 self.app.folder2_images = [pair[1] for pair in matched_pairs]
-                self.app.current_image_index = 0
 
                 # 更新页面显示
                 self.app.ui_manager.update_page_label()

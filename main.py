@@ -6,7 +6,7 @@
 
 import tkinter as tk
 from tkinter import ttk
-from typing import Optional, Dict
+from typing import Optional, Dict, Tuple
 from collections import OrderedDict
 from PIL import Image
 import time
